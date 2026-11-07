@@ -8240,6 +8240,7 @@
   "composer.chip.pasteSummary": "{lines} lines, {size}",
   "composer.chip.removePasted": "Remove pasted text",
   "composer.chip.removeFile": "Remove file",
+  "composer.attachment.discard": "Removing it deletes the uploaded file from the server. Attach it again to send it.",
   "computerSharing.loadFailed": "Could not load computer access. Reopen this page to try again.",
   "computerSharing.title": "Computer access · {name}",
   "computerSharing.loading": "Loading access…",

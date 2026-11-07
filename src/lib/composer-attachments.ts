@@ -687,6 +687,12 @@ export function splitAttachedImages(text: string): { display: string; images: st
   return { display, images: images.map((image) => image.path) };
 }
 
+/** Taking off an upload the server already holds deletes that copy: worth a confirm. One still uploading is a plain cancel. */
+export function discardNeedsConfirm(attachment: Attachment): boolean {
+  return (attachment.kind === "image" || attachment.kind === "file") && !!attachment.path
+    && !("uploading" in attachment && attachment.uploading);
+}
+
 /** A file uploaded for a message and taken off it before sending: the server keeps it only while a message uses it. */
 export function discardUnsentUpload(attachment: Attachment): void {
   if ((attachment.kind !== "image" && attachment.kind !== "file") || !attachment.path) return;
