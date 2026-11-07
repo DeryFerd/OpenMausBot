@@ -10,6 +10,7 @@ import { approvalDetailText, composioActionPhrase, outboundSummary } from "@/lib
 import { niceDate, niceTime, scheduleLabel } from "@/lib/schedule-label";
 import { cronPresetText, cronText } from "@/lib/cron-text";
 import { PROFILE_REQUEST_FIELDS, type ProfileRequestField } from "../../shared/profile-request";
+import { RESERVED_MCP_NAMES } from "../../shared/mcp-name";
 import type { RoutineRequestSchedule } from "../../shared/routine-request";
 import { isSkillSwitchAction, type SkillShareRecord } from "../../shared/skill-request";
 import { cardAutomation } from "@/lib/automations";
@@ -108,6 +109,7 @@ export function approvalCardOutcome(card: OptionCardData): string | undefined {
 
 export function toolLabel(tool?: string): string {
   if (!tool) return t("approval.tool.takeAction");
+  const server = /^mcp__([^_]+)__/.exec(tool)?.[1];
   const bare = tool.replace(/^mcp__[^_]+__/, "").replace(/_/g, " ");
   const nice: ToolLabels = {
     Bash: "approval.tool.runCommand",
@@ -134,7 +136,9 @@ export function toolLabel(tool?: string): string {
   };
   const key = nice[tool];
   if (key) return t(key);
-  return composioActionPhrase(tool.replace(/^mcp__[^_]+__/, "")) ?? bare;
+  // A custom MCP server's tools read like the app's own unless the card names the server asking.
+  const phrase = composioActionPhrase(tool.replace(/^mcp__[^_]+__/, "")) ?? bare;
+  return server && !RESERVED_MCP_NAMES.has(server) ? `${server} · ${phrase}` : phrase;
 }
 
 function plainWhen(schedule: RoutineRequestSchedule): string {

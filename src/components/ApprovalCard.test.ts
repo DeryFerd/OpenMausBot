@@ -478,6 +478,14 @@ describe("ApprovalCard tool-call kinds", () => {
     }
   });
 
+  it("names the custom MCP server a tool comes from, and stays quiet about the app's own servers", () => {
+    const html = renderToStaticMarkup(createElement(ApprovalCard, { bot, message: kindMessage("mcp__github__create_issue") }));
+    expect(html).toContain("Scout wants to github · create issue");
+    const own = renderToStaticMarkup(createElement(ApprovalCard, { bot, message: kindMessage("mcp__ogb__computer_batch") }));
+    expect(own).toContain("Scout wants to computer batch");
+    expect(own).not.toContain("ogb");
+  });
+
   it("reads grammatically when no tool is known", () => {
     const html = renderToStaticMarkup(createElement(ApprovalCard, { message: kindMessage(undefined) }));
     expect(html).toContain("Wants to take an action");
