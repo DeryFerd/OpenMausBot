@@ -12,6 +12,8 @@ import { api, useStore, type InstanceInfo } from "@/state/store";
 import { deviceSignInLink, isDeviceSignInCode } from "../../../shared/device-sign-in";
 
 const POLL_MS = 2_000;
+const POLL_MAX_MS = 30_000;
+const POLL_STALLS = 3;
 export const PILL = "ui-button ui-button-pill ui-button-lg ui-button-primary w-[288px] max-w-full";
 
 type Slot =
@@ -107,21 +109,35 @@ export function useSignInPill(instance: InstanceInfo | undefined) {
   useEffect(() => {
     if (!polling) return;
     const controller = new AbortController();
-    const timer = window.setInterval(() => {
+    // The provider's own code expires long before this matters; the pace here is about a server or network that
+    // dropped mid sign-in: slow the poll down, and after a few misses say so instead of spinning forever.
+    let timer: number | undefined;
+    let stalls = 0;
+    const schedule = () => {
+      timer = window.setTimeout(check, Math.min(POLL_MS * 2 ** stalls, POLL_MAX_MS));
+    };
+    const check = () => {
       void api(`${base}/auth/status?flowId=${encodeURIComponent(polling)}`, { signal: controller.signal })
         .then(({ auth }: { auth: DeviceSignInStatus }) => {
-          if (auth.phase === "succeeded") void done();
-          else if (auth.phase !== "waiting") fail(new Error(auth.message ?? t("engineSetup.device.failed")));
-          else if (isDeviceSignInCode(provider, auth.userCode)) {
+          if (auth.phase === "succeeded") return void done();
+          if (auth.phase !== "waiting") return fail(new Error(auth.message ?? t("engineSetup.device.failed")));
+          stalls = 0;
+          if (isDeviceSignInCode(provider, auth.userCode)) {
             const code = auth.userCode;
             setSlot((current) => current.kind === "code" && current.flowId === polling && current.code !== code
               ? { ...current, code, link: deviceSignInLink(provider, auth.authorizationUrl, code) } : current);
           }
+          schedule();
         })
-        .catch(() => {});
-    }, POLL_MS);
+        .catch(() => {
+          stalls += 1;
+          if (stalls >= POLL_STALLS) fail(new Error(t("engineSetup.device.unreachable")));
+          else schedule();
+        });
+    };
+    schedule();
     return () => {
-      window.clearInterval(timer);
+      if (timer) window.clearTimeout(timer);
       controller.abort();
     };
   }, [polling, base, done, provider]);
