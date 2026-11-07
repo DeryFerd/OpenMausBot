@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -38,8 +38,17 @@ describe("validateBotCwd", () => {
 describe("sharedProjectFolder", () => {
   const data = join(dir, "omb-data");
   const project = join(dir, "omb-data-site");
+  const privateWorkspace = join(data, "task-workspaces", "bot", "thread");
   mkdirSync(join(data, "task-workspaces", "bot", "thread"), { recursive: true });
   mkdirSync(project);
+  const linkKind = process.platform === "win32" ? "junction" : "dir";
+  const intoData = join(dir, "site-link-into-data");
+  const outside = join(dir, "omb-outside-site");
+  mkdirSync(outside);
+  try { symlinkSync(privateWorkspace, intoData, linkKind); } catch {}
+  const outLink = join(dir, "site-link-outside");
+  try { symlinkSync(outside, outLink, linkKind); } catch {}
+  const linked = existsSync(intoData) && existsSync(outLink);
 
   it("shares an existing folder outside the data folder, even one whose name starts the same", () => {
     expect(sharedProjectFolder(project, data)).toBe(project);
@@ -47,10 +56,19 @@ describe("sharedProjectFolder", () => {
 
   it("never shares the data folder, a private workspace in it, a missing folder or no folder", () => {
     expect(sharedProjectFolder(data, data)).toBeUndefined();
-    expect(sharedProjectFolder(join(data, "task-workspaces", "bot", "thread"), data)).toBeUndefined();
+    expect(sharedProjectFolder(privateWorkspace, data)).toBeUndefined();
     expect(sharedProjectFolder(join(dir, "gone"), data)).toBeUndefined();
     expect(sharedProjectFolder(null, data)).toBeUndefined();
     expect(sharedProjectFolder(undefined, data)).toBeUndefined();
+  });
+
+  it.runIf(linked)("never shares a folder whose link resolves into the data folder, while a link out stays shareable", () => {
+    expect(sharedProjectFolder(intoData, data)).toBeUndefined();
+    expect(sharedProjectFolder(outLink, data)).toBe(outLink);
+  });
+
+  it.runIf(linked)("still validates a linked folder as a plain working folder", () => {
+    expect(validateBotCwd(intoData)).toEqual({ ok: true, cwd: intoData });
   });
 });
 
