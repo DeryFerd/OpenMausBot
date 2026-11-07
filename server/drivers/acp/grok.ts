@@ -47,8 +47,8 @@ function grokLoginFailure(output: string): string {
   return "Grok sign-in did not finish. Check the server's connection, then try again.";
 }
 
-/** `grok login --device-auth` on the grok.com subscription (grok 1.0.25 and 1.0.41). Grok has no
- * status command, so nothing is checked first. */
+/** `grok login --device-auth` / `grok logout` on the grok.com subscription (grok 1.0.25 and 1.0.41). Grok has no
+ * status command, so the stored auth.json is the sign-in check. */
 export const GROK_DEVICE_SIGN_IN: DeviceSignIn = {
   provider: "grok",
   product: "Grok",
@@ -56,6 +56,7 @@ export const GROK_DEVICE_SIGN_IN: DeviceSignIn = {
   homeEnv: "GROK_HOME",
   homeDir: ".grok",
   loginArgs: ["login", "--device-auth"],
+  logoutArgs: ["logout"],
   install: "Install it with xAI's installer (https://x.ai/cli), then try again.",
   failure: grokLoginFailure,
   signedIn: grokSignedIn,

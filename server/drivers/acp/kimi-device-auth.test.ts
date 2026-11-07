@@ -79,6 +79,13 @@ describe("Kimi device prompt", () => {
   });
 });
 
+describe("Kimi sign-out from the server", () => {
+  it("declares the CLI's logout command with the stored credential files as its check", () => {
+    expect(KIMI_DEVICE_SIGN_IN.logoutArgs).toEqual(["logout"]);
+    expect(KIMI_DEVICE_SIGN_IN.signedIn).toBeTypeOf("function");
+  });
+});
+
 describe.skipIf(process.platform === "win32")("Kimi Code sign-in with a device code", () => {
   let home: string;
   let instances: ProviderInstance[];
@@ -224,5 +231,17 @@ describe.skipIf(process.platform === "win32")("Kimi Code sign-in with a device c
     expect((await instance.getAuthentication!(start.flowId!)).phase).toBe("waiting");
     writeFileSync(join(home, ".omb-fake-kimi-approved"), "approve fixture only\n");
     await expect.poll(async () => (await instance.getAuthentication!(start.flowId!)).phase, { timeout: 5_000 }).toBe("succeeded");
+  });
+
+  it("signs the stored login out through the CLI's logout", async () => {
+    const instance = await kimi("success");
+    const start = await instance.startAuthentication!();
+    await expect.poll(async () => (await instance.getAuthentication!(start.flowId!)).phase, { timeout: 5_000 }).toBe("succeeded");
+    expect(existsSync(credential())).toBe(true);
+    await instance.signOut!();
+    expect(existsSync(credential())).toBe(false);
+    expect(calls().filter((call) => call.args[0] === "logout")).toEqual([
+      { args: ["logout"], home, kimiHome: join(home, ".kimi-code"), moonshotKey: null },
+    ]);
   });
 });

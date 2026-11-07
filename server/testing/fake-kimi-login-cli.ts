@@ -4,7 +4,7 @@
 //   FAKE_KIMI_MODE  success | global (kimi.ai, saved under its own token name) | approve (once
 //     HOME/.omb-fake-kimi-approved exists) | waiting | renew (a new code, as once the first expires) | extra (a page with
 //     another query value) | evil (a page on another host) | expired | denied | crash | no-credential | ignore-term
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
 const home = process.env.HOME;
@@ -56,6 +56,14 @@ if (args.join(" ") === "--version") {
     if (mode === "ignore-term") process.on("SIGTERM", () => {});
     setInterval(() => {}, 1000);
   }
+} else if (args.join(" ") === "logout") {
+  try {
+    for (const name of readdirSync(join(kimiHome, "credentials"))) {
+      if (/^kimi-code(?:-env-[0-9a-f]+)?\.json$/.test(name)) rmSync(join(kimiHome, "credentials", name), { force: true });
+    }
+  } catch {}
+  process.stderr.write("Logged out of Kimi Code.\n");
+  process.exit(0);
 } else {
   process.stderr.write("Unsupported offline fixture command.\n");
   process.exitCode = 2;

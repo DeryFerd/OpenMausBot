@@ -180,8 +180,8 @@ export class DeviceAuthController {
   }
 
   private async signOutNow(): Promise<void> {
-    const { product, account, status, logoutArgs } = this.spec;
-    if (!status || !logoutArgs) throw new Error(`Signing out of ${account} is not available from here.`);
+    const { product, account, status, signedIn, logoutArgs } = this.spec;
+    if (!logoutArgs || (!status && !signedIn)) throw new Error(`Signing out of ${account} is not available from here.`);
     if (this.disposed) throw new Error("This provider was removed. Refresh Settings before signing out.");
     if (this.flow?.status.phase === "waiting") throw new Error(`Finish or cancel the ${account} sign-in in progress before signing out.`);
     await this.flow?.stopping;
@@ -193,16 +193,19 @@ export class DeviceAuthController {
     }
     authenticatingHomes.add(homeKey);
     try {
-      const before = await this.exec([...status.args], env, home);
-      const state = status.read(before.code, before.output);
+      const held = async (): Promise<DeviceSignInState> => {
+        if (!status) return signedIn!(env) ? "signed-in" : "signed-out";
+        const probe = await this.exec([...status.args], env, home);
+        return status.read(probe.code, probe.output);
+      };
+      const state = await held();
       if (state === "signed-out") return;
       if (state !== "signed-in") {
         throw new Error(`${product} did not confirm a ${account} sign-in. Other authentication methods will not be removed; ask the server administrator to check the account.`);
       }
       const logout = await this.exec([...logoutArgs], env, home);
       if (logout.code !== 0) throw new Error(`${product} could not remove the sign-in on this server. Check the server's ${product} installation and try again.`);
-      const after = await this.exec([...status.args], env, home);
-      if (status.read(after.code, after.output) !== "signed-out") {
+      if (await held() !== "signed-out") {
         throw new Error(`${product} still reports a sign-in on this server. Update ${product} and check its login status before trying again.`);
       }
     } finally {

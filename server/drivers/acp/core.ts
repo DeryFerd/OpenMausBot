@@ -1676,6 +1676,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
           startAuthentication: () => deviceSignIn.start(),
           getAuthentication: (flowId: string) => deviceSignIn.get(flowId),
           cancelAuthentication: () => deviceSignIn.cancel(),
+          ...(support.deviceSignIn?.logoutArgs ? { signOut: () => deviceSignIn.signOut() } : {}),
         } : {}),
         snapshot,
         adapter: {

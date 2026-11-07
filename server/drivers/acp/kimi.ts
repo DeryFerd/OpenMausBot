@@ -65,7 +65,8 @@ function kimiLoginFailure(output: string): string {
   return "Kimi sign-in did not finish. Check the server's connection, then try again.";
 }
 
-/** `kimi login`, Kimi Code's device-code login (kimi-code 2.4.1). Kimi has no status command, so nothing is checked first. */
+/** `kimi login` / `kimi logout`, Kimi Code's device-code login (kimi-code 2.4.1). Kimi has no status command, so
+ * the stored credential files are the sign-in check. */
 export const KIMI_DEVICE_SIGN_IN: DeviceSignIn = {
   provider: "kimi",
   product: "Kimi",
@@ -73,6 +74,7 @@ export const KIMI_DEVICE_SIGN_IN: DeviceSignIn = {
   homeEnv: "KIMI_CODE_HOME",
   homeDir: ".kimi-code",
   loginArgs: ["login"],
+  logoutArgs: ["logout"],
   install: "Install it with Moonshot's installer (https://code.kimi.com), or from Settings when this server has npm, then try again.",
   failure: kimiLoginFailure,
   signedIn: kimiSignedIn,
