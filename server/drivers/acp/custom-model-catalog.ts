@@ -68,6 +68,18 @@ async function stopDiscovery(child: ReturnType<typeof spawnCli> | undefined, gra
 
 const AGENT_DEFAULT = { id: "agent-default", label: "Agent default" };
 
+/** A discovered model or variant id is an opaque key the picker, the request rebuild and the set_model round-trips
+ * treat as trusted; the agent advertising it is untrusted, so traversal, control characters, quotes and shell
+ * metacharacters are skipped. Real ids include parameterised forms (`grok-4.7[context=256k,fast=true]`). */
+function usableDiscoveredId(id: unknown): id is string {
+  return typeof id === "string" && id.length <= 200 && !id.includes("..")
+    && /^[A-Za-z0-9][A-Za-z0-9 ._():\[\]{}=,@+/:-]*$/.test(id);
+}
+
+function usableDiscoveredLabel(label: unknown): label is string {
+  return typeof label === "string" && label.length <= 200 && !/[\u0000-\u001f\u007f-\u009f]/.test(label);
+}
+
 export function resolveCustomAcpModels(
   env: Record<string, string | undefined>,
   config: Pick<AcpConfig, "cli">,
@@ -191,6 +203,7 @@ export async function discoverAcpModels(
     for (const model of modelOption.options) {
       if (model.id === passthrough?.id) continue;
       if (failure) throw failure;
+      if (!usableDiscoveredId(model.id)) continue;
       let confirmed: unknown;
       if (model.id === modelOption.currentValue) {
         confirmed = initial;
@@ -206,13 +219,21 @@ export async function discoverAcpModels(
           if (failure) throw failure;
         }
       }
-      const variants = confirmed ? acpVariantOption(confirmed)?.options : undefined;
-      const label = discovery.label ? discovery.label(model, initial) : model.label;
-      options.push({ ...model, label, ...mark, ...(variants?.length ? { variants } : {}) });
+      const variants = confirmed ? acpVariantOption(confirmed)?.options.filter((variant) => usableDiscoveredId(variant.id)) : undefined;
+      const named = discovery.label ? discovery.label(model, initial) : model.label;
+      const label = usableDiscoveredLabel(named) ? named : model.id;
+      const provider = usableDiscoveredLabel(model.provider) ? model.provider : undefined;
+      options.push({
+        id: model.id, label,
+        ...(provider ? { provider } : {}), ...mark,
+        ...(variants?.length ? { variants } : {}),
+      });
     }
     if (failure) throw failure;
+    if (!options.length) throw new Error("The ACP agent did not advertise any usable models. The previous catalog was kept.");
     const preferred = discovery.default && options.some((option) => option.id === discovery.default) ? discovery.default : undefined;
-    catalog = { default: passthrough?.id ?? preferred ?? modelOption.currentValue ?? options[0].id, options };
+    const current = usableDiscoveredId(modelOption.currentValue) ? modelOption.currentValue : undefined;
+    catalog = { default: passthrough?.id ?? preferred ?? current ?? options[0].id, options };
   } catch (error) {
     thrown = error;
   } finally {
